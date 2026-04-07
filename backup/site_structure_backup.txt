@@ -1,0 +1,59 @@
+======================================================
+         GS AI INSIGHT - 프로젝트 구성 종합 백업
+======================================================
+백업 일시: 2026년 4월 7일
+프레임워크 기술 스택: Next.js (App Router), Tailwind CSS, TypeScript, Prisma (DB)
+
+[1. 핵심 디렉토리 및 페이지 구조]
+📂 app
+ ┣ 📜 page.tsx           - 🏠 메인 홈페이지 (대시보드 뷰, 3D Spline, 프롬프트 봇 연동)
+ ┣ 📜 layout.tsx         - 글로벌 폰트 및 다크/글래스모피즘 테마 레이아웃
+ ┣ 📜 globals.css        - 전역 Tailwind CSS 속성 및 애니메이션 정의
+ ┃
+ ┣ 📂 guide              - AI 가이드 페이지 (학습/튜토리얼 리스트)
+ ┃ ┗ 📜 page.tsx         - 로컬저장소 기반 목록 렌더링, 상태보존 최적화 패치 적용
+ ┣ 📂 apps               - AI 앱서비스 소개 페이지 
+ ┃ ┗ 📜 page.tsx         - 로컬저장소 기반 검색/다중이미지 지원
+ ┣ 📂 library            - AI 라이브러리 (사례/프롬프트 공유)
+ ┃ ┗ 📜 page.tsx         - 최대 10장 이미지/MP4 동영상 배열 업로드 지원
+ ┣ 📂 news               - 최신 AI 뉴스 데이터베이스
+ ┃ ┗ 📜 page.tsx         - Prisma DB 연동, 카테고리 필터링 구조
+ ┣ 📂 admin              - 총괄 관리자 페이지
+ ┃ ┗ 📜 page.tsx
+ ┃
+ ┗ 📂 api                - 백엔드 서버사이드 API
+    ┣ 📂 posts           - 뉴스 및 게시물 DB CRUD API
+    ┣ 📂 cron            - 매일 뉴스 등을 자동 수집하는 스케줄러(크론)
+    ┣ 📂 search          - 전체 사이트 내부 데이터 통합검색
+    ┗ 📂 prompt-bot      - Gemini(또는 Claude) 프롬프트 봇 API 연동부
+
+[2. 컴포넌트 구조 (UI 모듈)]
+📂 components
+ ┣ 📜 Navigation.tsx      - 글로벌 상단 네비게이션 바
+ ┣ 📜 PromptAutomator.tsx - 🤖 프롬프트 자동 최적화 봇 컴포넌트 화면
+ ┗ 📂 modals              - 각 메뉴별 글쓰기 창 및 뷰어 팝업 컴포넌트 트리
+    ┣ 📜 GuideWriteModal.tsx / GuideDetailModal.tsx
+    ┣ 📜 AppWriteModal.tsx / AppDetailModal.tsx
+    ┣ 📜 LibraryWriteModal.tsx / LibraryDetailModal.tsx
+    ┣ 📜 NewsWriteModal.tsx / NewsDetailModal.tsx
+    ┗ 📜 ImageViewerModal.tsx  (다중 이미지 클릭 시 열리는 슬라이더)
+
+[3. 코어 로직 및 유틸리티]
+📂 lib
+ ┣ 📜 prisma.ts (db.ts)   - 데이터베이스 ORM 연결 파트
+ ┣ 📜 claude.ts           - LLM(Claude) 연동
+ ┣ 📜 youtube.ts          - 유튜브 자동 분석 
+ ┗ 📜 auth.ts             - Next-Auth 로그인 관리
+
+📂 prisma
+ ┗ 📜 schema.prisma       - 데이터베이스 스키마(표) 모델링 정의
+
+======================================================
+[최신 핵심 수정 및 안정화 내용]
+1. 사이트 전반 데이터 영속성 패치 완료
+   - 게시물 새로 등록 시 기존 데이터가 증발하는 React 렌더링 오류를 함수형 업데이트(Functional Updates)를 통해 완벽 차단.
+2. 미디어 컴포넌트 업그레이드
+   - 단일 이미지에서 최대 10장까지의 사진 배열과 MP4 네이티브 동영상을 업로드하고 볼 수 있게 수정.
+3. 태그 카테고리 컬러링 구분
+   - AI 가이드 뱃지를 동적 데이터 바인딩하여 선택한 태그(LLM, Midjourney 등)에 맞게 아이콘과 색상이 변하도록 모듈화.
+======================================================

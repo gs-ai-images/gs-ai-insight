@@ -1,184 +1,207 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
+import AppDetailModal, { AppPost } from '@/components/modals/AppDetailModal';
+import AppWriteModal from '@/components/modals/AppWriteModal';
 
-interface AppService {
-  id: number;
-  title: string;
-  description: string;
-  image_url: string;
-  link_url: string;
-  created_at: string;
-}
+// 초기 하드코딩된 게시물들은 전부 지워달라는 요청에 따라 빈 배열로 시작합니다.
+const initialApps: AppPost[] = [];
 
 export default function AppsPage() {
-  const [apps, setApps] = useState<AppService[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [adminToken, setAdminToken] = useState('');
-  const [form, setForm] = useState({ title: '', description: '', image_url: '', link_url: '' });
-  const [submitting, setSubmitting] = useState(false);
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'ADMIN';
 
+  const [posts, setPosts] = useState<AppPost[]>(initialApps);
+  const [isWriteModalOpen, setIsWriteModalOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<AppPost | null>(null);
+  const [editingPost, setEditingPost] = useState<AppPost | null>(null);
+
+  // Load saved posts from API on mount
   useEffect(() => {
-    setAdminToken(localStorage.getItem('gsai_admin') || '');
-    fetch('/api/apps').then(r => r.json()).then(data => { setApps(data); setLoading(false); }).catch(() => setLoading(false));
+    const fetchPosts = async () => {
+      try {
+        const res = await fetch('/api/posts?category=app');
+        if (res.ok) {
+          const data = await res.json();
+          const mappedPosts = data.map((post: any) => ({
+             id: post.id,
+             title: post.title,
+             content: post.content,
+             imgSrc: post.imageUrl || '',
+             images: post.imagesData ? JSON.parse(post.imagesData) : (post.imageUrl ? [post.imageUrl] : []),
+             tag: post.tag || 'AI 서비스',
+             appUrl: post.sourceUrl || '',
+             author: post.author?.name || '관리자',
+             timeLabel: post.timeLabel || '',
+             isOwner: session?.user?.role === 'ADMIN'
+          }));
+          setPosts(mappedPosts);
+        }
+      } catch (e) {
+        console.error("Failed to load apps from DB", e);
+      }
+    };
+    fetchPosts();
+  }, [session]);
+
+  // Listen for the custom "reset-view" event fired by the navigation bar when the active tab is clicked again
+  useEffect(() => {
+    const handleReset = () => {
+      setSelectedPost(null);
+      setIsWriteModalOpen(false);
+      setEditingPost(null);
+    };
+    window.addEventListener('reset-view', handleReset);
+    return () => window.removeEventListener('reset-view', handleReset);
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.title || !form.link_url) return;
-    setSubmitting(true);
-    const res = await fetch('/api/apps', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, adminToken }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setApps(prev => [{ id: data.id, ...form, created_at: new Date().toISOString() }, ...prev]);
-      setForm({ title: '', description: '', image_url: '', link_url: '' });
-      setShowForm(false);
+  const handleAddOrEditPost = async (submittedPost: AppPost) => {
+    try {
+        const existingIndex = posts.findIndex(p => p.id === submittedPost.id);
+        const method = existingIndex >= 0 && !submittedPost.id.startsWith('app-') ? 'PUT' : 'POST';
+        const url = method === 'PUT' ? `/api/posts/${submittedPost.id}` : '/api/posts';
+
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: submittedPost.title,
+                content: submittedPost.content,
+                category: 'app',
+                imageUrl: submittedPost.imgSrc,
+                imagesData: JSON.stringify(submittedPost.images || []),
+                tag: submittedPost.tag,
+                sourceUrl: submittedPost.appUrl,
+                timeLabel: submittedPost.timeLabel
+            })
+        });
+
+        if (res.ok) {
+            const newDbPost = await res.json();
+            const mappedPost = { ...submittedPost, id: newDbPost.id };
+
+            setPosts(prevPosts => {
+                if (method === 'PUT') {
+                    return prevPosts.map(p => p.id === mappedPost.id ? mappedPost : p);
+                } else {
+                    return [mappedPost, ...prevPosts];
+                }
+            });
+
+            if (selectedPost && selectedPost.id === submittedPost.id) {
+                setSelectedPost(mappedPost);
+            }
+        } else {
+             const errText = await res.text();
+             console.error("Failed to save app", errText);
+             throw new Error(`Failed to save app: ${errText}`);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("DB 저장 오류가 발생했습니다.");
+        throw err;
     }
-    setSubmitting(false);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('삭제하시겠습니까?')) return;
-    await fetch(`/api/apps?id=${id}&adminToken=${adminToken}`, { method: 'DELETE' });
-    setApps(prev => prev.filter(a => a.id !== id));
+
+  const handleDeletePost = async (id: string) => {
+    try {
+      if (!id.startsWith('app-')) {
+          const res = await fetch(`/api/posts/${id}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error("Delete failed");
+      }
+      setPosts(prevPosts => prevPosts.filter(p => p.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert("삭제 중 오류가 발생했습니다.");
+    }
   };
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px', flexWrap: 'wrap', gap: '16px' }}>
+    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 w-full pointer-events-auto">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 border-b border-gray-800 pb-5">
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-            <span style={{ fontSize: '36px' }}>🚀</span>
-            <h1 style={{ fontSize: '32px', fontWeight: '800', color: 'white' }}>AI 앱 서비스</h1>
-          </div>
-          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '15px' }}>GS가 제작한 AI 앱 서비스 모음</p>
+          <h2 className="text-3xl font-extrabold flex items-center gap-3">
+            <i className="fa-solid fa-rocket text-cyan-400"></i> 자체 AI 앱 서비스
+          </h2>
+          <p className="text-gray-400 mt-2 text-sm">
+            사내/외에서 직접 제작한 맞춤형 AI 애플리케이션을 공유하고 실행해 보세요.
+          </p>
         </div>
-        {adminToken && (
-          <button onClick={() => setShowForm(!showForm)} style={{
-            padding: '12px 24px', borderRadius: '12px', fontSize: '14px', fontWeight: '600',
-            background: 'linear-gradient(135deg,#6c63ff,#4a9eff)', color: 'white', border: 'none', cursor: 'pointer',
-          }}>
-            + 앱 등록
+        {isAdmin && (
+          <button 
+            onClick={() => {
+              setEditingPost(null);
+              setIsWriteModalOpen(true);
+            }}
+            className="mt-4 md:mt-0 bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-5 py-2.5 rounded-xl shadow transition flex items-center gap-2 text-sm cursor-pointer"
+          >
+            <i className="fa-solid fa-cloud-arrow-up"></i> 새 앱 업로드 (관리자 전용)
           </button>
         )}
       </div>
-
-      {/* Upload form */}
-      {showForm && adminToken && (
-        <form onSubmit={handleSubmit} style={{
-          background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(108,99,255,0.25)',
-          borderRadius: '16px', padding: '28px', marginBottom: '32px',
-        }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '700', color: 'white', marginBottom: '20px' }}>새 앱 서비스 등록</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            {[
-              { key: 'title', label: '앱 이름 *', placeholder: '예: AI 이미지 생성기' },
-              { key: 'link_url', label: '앱 링크 *', placeholder: 'https://...' },
-              { key: 'image_url', label: '이미지 URL', placeholder: 'https://... (썸네일)' },
-            ].map(field => (
-              <div key={field.key}>
-                <label style={{ display: 'block', fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>{field.label}</label>
-                <input
-                  type="text"
-                  value={form[field.key as keyof typeof form]}
-                  onChange={e => setForm(prev => ({ ...prev, [field.key]: e.target.value }))}
-                  placeholder={field.placeholder}
-                  style={{
-                    width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(108,99,255,0.25)',
-                    borderRadius: '8px', padding: '10px 14px', color: 'white', fontSize: '14px', outline: 'none',
-                  }}
-                />
-              </div>
-            ))}
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ display: 'block', fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginBottom: '6px' }}>설명</label>
-              <textarea
-                value={form.description}
-                onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="앱에 대한 간단한 설명을 입력하세요"
-                rows={2}
-                style={{
-                  width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(108,99,255,0.25)',
-                  borderRadius: '8px', padding: '10px 14px', color: 'white', fontSize: '14px', outline: 'none', resize: 'vertical',
-                }}
-              />
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
-            <button type="submit" disabled={submitting} style={{
-              padding: '10px 24px', borderRadius: '10px', fontSize: '14px', fontWeight: '600',
-              background: 'linear-gradient(135deg,#6c63ff,#4a9eff)', color: 'white', border: 'none', cursor: 'pointer',
-            }}>
-              {submitting ? '등록 중...' : '등록하기'}
-            </button>
-            <button type="button" onClick={() => setShowForm(false)} style={{
-              padding: '10px 24px', borderRadius: '10px', fontSize: '14px',
-              background: 'transparent', border: '1px solid rgba(108,99,255,0.3)', color: 'rgba(255,255,255,0.5)', cursor: 'pointer',
-            }}>취소</button>
-          </div>
-        </form>
-      )}
-
-      {/* Apps grid */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '80px' }}>
-          <div style={{ width: '40px', height: '40px', border: '3px solid rgba(108,99,255,0.2)', borderTopColor: '#6c63ff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+      
+      {posts.length === 0 ? (
+        <div className="text-center py-24 text-gray-500">
+          <i className="fa-solid fa-layer-group text-5xl mb-5 opacity-50 text-cyan-500/50"></i>
+          <p className="text-lg">등록된 자체 앱 서비스가 없습니다.<br/>{isAdmin ? '위에 있는 버튼을 눌러 첫 번째 앱을 등록해주세요.' : '관리자가 새로운 앱을 곧 추가할 예정입니다.'}</p>
         </div>
-      ) : apps.length > 0 ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
-          {apps.map(app => (
-            <div key={app.id} style={{ position: 'relative' }}>
-              <a href={app.link_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'block' }}>
-                <div style={{
-                  background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,215,0,0.15)',
-                  borderRadius: '16px', overflow: 'hidden', transition: 'all 0.3s', cursor: 'pointer',
-                }}
-                onMouseEnter={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(255,215,0,0.4)'; el.style.transform = 'translateY(-4px)'; el.style.boxShadow = '0 16px 48px rgba(255,215,0,0.08)'; }}
-                onMouseLeave={e => { const el = e.currentTarget; el.style.borderColor = 'rgba(255,215,0,0.15)'; el.style.transform = 'translateY(0)'; el.style.boxShadow = 'none'; }}>
-                  <div style={{
-                    height: '160px',
-                    background: app.image_url ? `url(${app.image_url}) center/cover no-repeat` : 'linear-gradient(135deg, rgba(108,99,255,0.2), rgba(255,215,0,0.1))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    {!app.image_url && <span style={{ fontSize: '48px' }}>🚀</span>}
-                  </div>
-                  <div style={{ padding: '20px' }}>
-                    <h3 style={{ fontSize: '17px', fontWeight: '700', color: 'white', marginBottom: '8px' }}>{app.title}</h3>
-                    <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)', lineHeight: '1.6' }}>{app.description}</p>
-                    <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '6px', color: '#ffd700', fontSize: '13px', fontWeight: '600' }}>
-                      앱 사용하기 →
-                    </div>
-                  </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 page-fade">
+          {posts.map((post) => (
+            <div 
+              key={post.id}
+              onClick={() => setSelectedPost(post)}
+              className="glass-panel rounded-3xl p-6 flex flex-col border border-gray-700 hover:border-cyan-500/50 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] transition cursor-pointer group"
+            >
+              {post.imgSrc ? (
+                <div className="w-full h-48 mb-5 rounded-2xl overflow-hidden shadow-lg border border-gray-700/50 transform group-hover:scale-[1.02] transition duration-300">
+                  <img 
+                    src={post.imgSrc} 
+                    className="w-full h-full object-cover" 
+                    alt={post.title} 
+                  />
                 </div>
-              </a>
-              {adminToken && (
-                <button onClick={() => handleDelete(app.id)} style={{
-                  position: 'absolute', top: '10px', right: '10px', width: '28px', height: '28px',
-                  borderRadius: '50%', background: 'rgba(255,0,0,0.3)', border: '1px solid rgba(255,0,0,0.5)',
-                  color: 'white', cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>×</button>
+              ) : (
+                <div className="w-full h-48 mb-5 rounded-2xl bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center shadow-lg border border-gray-700/50 transform group-hover:scale-[1.02] transition duration-300">
+                  <i className="fa-solid fa-robot text-5xl text-white"></i>
+                </div>
               )}
+              
+              <div className="mb-4">
+                <h3 className="font-bold text-2xl text-white mb-2 group-hover:text-cyan-300 transition-colors leading-snug">{post.title}</h3>
+                <span className="text-xs bg-cyan-900/50 text-cyan-300 px-2.5 py-1 rounded-md border border-cyan-700">{post.tag}</span>
+              </div>
+              
+              <p className="text-base text-gray-400 flex-grow leading-relaxed line-clamp-3">
+                {post.content}
+              </p>
             </div>
           ))}
         </div>
-      ) : (
-        <div style={{
-          textAlign: 'center', padding: '80px 40px',
-          background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,215,0,0.1)',
-          borderRadius: '20px',
-        }}>
-          <div style={{ fontSize: '64px', marginBottom: '20px' }}>🚀</div>
-          <h3 style={{ fontSize: '20px', fontWeight: '600', color: 'white', marginBottom: '10px' }}>등록된 앱이 없습니다</h3>
-          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '15px' }}>관리자가 AI 앱 서비스를 등록하면 여기에 표시됩니다</p>
-        </div>
       )}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <AppWriteModal 
+        isOpen={isWriteModalOpen} 
+        onClose={() => {
+          setIsWriteModalOpen(false);
+          setEditingPost(null);
+        }} 
+        onSubmit={handleAddOrEditPost} 
+        initialData={editingPost}
+      />
+
+      <AppDetailModal 
+        isOpen={selectedPost !== null} 
+        onClose={() => setSelectedPost(null)} 
+        post={selectedPost} 
+        onDelete={handleDeletePost}
+        onEdit={(post) => {
+          setEditingPost(post);
+          setIsWriteModalOpen(true);
+        }}
+      />
     </div>
   );
 }

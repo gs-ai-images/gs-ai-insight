@@ -1,0 +1,57 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  password      String?
+  role          String    @default("USER") // "USER", "ADMIN"
+  createdAt     DateTime   @default(now())
+  posts         Post[]
+  bookmarks     Bookmark[]
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  category    String   // "guide", "library", "news", "app", "tips"
+  subCategory String?  // "1-1", "1-2", etc.
+  title       String
+  content     String
+  imageUrl    String?
+  sourceUrl   String?
+  imagesData  String? // Storing JSON array string of multiple image URLs
+  
+  // Custom fields for News mapping
+  summary     String?
+  sourceName  String?
+  tag         String?
+  timeLabel   String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  authorId    String
+  author      User       @relation(fields: [authorId], references: [id])
+  bookmarks   Bookmark[]
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+}
