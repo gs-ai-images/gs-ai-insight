@@ -28,7 +28,14 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
       include: { author: { select: { name: true, email: true } } }
     });
-    return NextResponse.json(posts);
+
+    // Add Cache-Control for Vercel Edge network to resolve loading delay
+    // This caches the API response at CDN level for 60 seconds
+    return NextResponse.json(posts, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+      }
+    });
   } catch (err) {
     return NextResponse.json({ error: 'Failed to fetch posts' }, { status: 500 });
   }

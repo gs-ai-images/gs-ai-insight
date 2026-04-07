@@ -54,6 +54,9 @@ export default function GuidePage() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
+        const cached = sessionStorage.getItem('gs-cache-guide');
+        if (cached) setPosts(JSON.parse(cached));
+
         const res = await fetch('/api/posts?category=guide');
         if (res.ok) {
           const data = await res.json();
@@ -69,6 +72,7 @@ export default function GuidePage() {
              isOwner: session?.user?.role === 'ADMIN'
           }));
           setPosts(mappedPosts);
+          sessionStorage.setItem('gs-cache-guide', JSON.stringify(mappedPosts));
         }
       } catch (e) {
         console.error("Failed to load guide posts from DB", e);

@@ -21,6 +21,9 @@ export default function AppsPage() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
+        const cached = sessionStorage.getItem('gs-cache-apps');
+        if (cached) setPosts(JSON.parse(cached));
+
         const res = await fetch('/api/posts?category=app');
         if (res.ok) {
           const data = await res.json();
@@ -37,6 +40,7 @@ export default function AppsPage() {
              isOwner: session?.user?.role === 'ADMIN'
           }));
           setPosts(mappedPosts);
+          sessionStorage.setItem('gs-cache-apps', JSON.stringify(mappedPosts));
         }
       } catch (e) {
         console.error("Failed to load apps from DB", e);
