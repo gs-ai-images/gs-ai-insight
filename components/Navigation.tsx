@@ -138,8 +138,13 @@ export default function Navigation() {
               
               {session ? (
                 <div className="hidden sm:flex items-center gap-3">
-                  <span className="text-xs font-bold text-gray-300">
-                    <i className="fa-solid fa-crown text-amber-400 mr-1"></i> 관리자
+                  <span className="text-xs font-bold text-gray-300 flex items-center">
+                    {/* @ts-ignore */}
+                    {session.user?.role === 'ADMIN' ? (
+                      <><i className="fa-solid fa-crown text-amber-400 mr-1"></i> 관리자</>
+                    ) : (
+                      <><i className="fa-solid fa-user text-blue-400 mr-1"></i> {session.user?.name}</>
+                    )}
                   </span>
                   <button 
                     onClick={() => signOut()}
@@ -153,7 +158,7 @@ export default function Navigation() {
                   onClick={() => signIn()}
                   className="hidden sm:block bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-1.5 rounded-full text-sm font-bold shadow hover:from-blue-500 hover:to-indigo-500 transition"
                 >
-                  관리자 접속
+                  로그인
                 </button>
               )}
               
@@ -226,7 +231,7 @@ export default function Navigation() {
               }}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-3 rounded-full text-lg font-bold shadow transition mt-4"
             >
-              관리자 접속
+              로그인
             </button>
           )}
         </div>

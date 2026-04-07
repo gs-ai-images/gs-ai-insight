@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
-import fs from "fs/promises";
-import path from "path";
+import { supabase } from "@/utils/supabase";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,15 +17,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No files uploaded" }, { status: 400 });
     }
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    
-    // Ensure the mapped directory exists just in case
-    try {
-      await fs.access(uploadDir);
-    } catch {
-      await fs.mkdir(uploadDir, { recursive: true });
-    }
-
     const fileUrls: string[] = [];
 
     for (const file of files) {
@@ -35,11 +25,26 @@ export async function POST(req: NextRequest) {
       
       const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
       const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}-${safeName}`;
-      const filepath = path.join(uploadDir, filename);
       
-      await fs.writeFile(filepath, buffer);
+      const { data, error } = await supabase
+        .storage
+        .from('gs-ai-images')
+        .upload(filename, buffer, {
+          contentType: file.type,
+          upsert: false
+        });
+        
+      if (error) {
+        console.error("Supabase upload error:", error);
+        throw error;
+      }
+
+      const { data: { publicUrl } } = supabase
+        .storage
+        .from('gs-ai-images')
+        .getPublicUrl(filename);
       
-      fileUrls.push(`/uploads/${filename}`);
+      fileUrls.push(publicUrl);
     }
 
     return NextResponse.json({ urls: fileUrls });

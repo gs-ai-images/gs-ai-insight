@@ -43,6 +43,34 @@ export const authOptions: NextAuthOptions = {
           };
         }
         
+        // 사내 전용 일반 직원 공용 계정 적용
+        if (
+          credentials?.username === "gs_staff" &&
+          credentials?.password === "1234"
+        ) {
+          try {
+            await prisma.user.upsert({
+              where: { id: "2" },
+              update: {},
+              create: {
+                id: "2",
+                name: "GS Staff",
+                email: "staff@gsretail.com",
+                role: "USER",
+              }
+            });
+          } catch (e) {
+            console.error("Failed to upsert staff user", e);
+          }
+
+          return {
+            id: "2",
+            name: "GS Staff",
+            email: "staff@gsretail.com",
+            role: "USER",
+          };
+        }
+
         // 인증 실패
         return null;
       }
