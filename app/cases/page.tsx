@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import CaseDetailModal, { CasePost } from '@/components/modals/CaseDetailModal';
@@ -9,7 +9,7 @@ import BookmarkButton from '@/components/BookmarkButton';
 
 const initialPosts: CasePost[] = [];
 
-export default function CasesPage() {
+function CasesContent() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === 'ADMIN';
 
@@ -270,5 +270,17 @@ export default function CasesPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function CasesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen pt-24 px-6 md:px-12 max-w-7xl mx-auto flex items-center justify-center">
+        <i className="fa-solid fa-spinner fa-spin text-4xl text-purple-500"></i>
+      </div>
+    }>
+      <CasesContent />
+    </Suspense>
   );
 }

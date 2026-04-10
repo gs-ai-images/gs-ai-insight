@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import GuideDetailModal, { GuidePost } from '@/components/modals/GuideDetailModal';
@@ -40,7 +40,7 @@ const getBadgeStyles = (tag: string) => {
   return { label, colorClass, icon, brand };
 };
 
-export default function GuidePage() {
+function GuideContent() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === 'ADMIN';
 
@@ -339,5 +339,17 @@ export default function GuidePage() {
         }}
       />
     </div>
+  );
+}
+
+export default function GuidePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen pt-24 px-6 md:px-12 max-w-7xl mx-auto flex items-center justify-center">
+        <i className="fa-solid fa-spinner fa-spin text-4xl text-emerald-500"></i>
+      </div>
+    }>
+      <GuideContent />
+    </Suspense>
   );
 }

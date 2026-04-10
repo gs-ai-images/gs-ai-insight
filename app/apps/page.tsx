@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import AppDetailModal, { AppPost } from '@/components/modals/AppDetailModal';
@@ -9,7 +9,7 @@ import AppWriteModal from '@/components/modals/AppWriteModal';
 // 초기 하드코딩된 게시물들은 전부 지워달라는 요청에 따라 빈 배열로 시작합니다.
 const initialApps: AppPost[] = [];
 
-export default function AppsPage() {
+function AppsContent() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === 'ADMIN';
 
@@ -254,5 +254,17 @@ export default function AppsPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function AppsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen pt-24 px-6 md:px-12 max-w-7xl mx-auto flex items-center justify-center">
+        <i className="fa-solid fa-spinner fa-spin text-4xl text-purple-500"></i>
+      </div>
+    }>
+      <AppsContent />
+    </Suspense>
   );
 }
