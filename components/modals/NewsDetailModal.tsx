@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import TextWithLinks from '@/components/TextWithLinks';
+import ZoomableImage from '@/components/ui/ZoomableImage';
 
 export type NewsPost = {
   id: string;
@@ -118,7 +120,7 @@ export default function NewsDetailModal({ isOpen, onClose, post, onDelete, onEdi
           
           {post.imgSrc && (
             <div className="w-full flex justify-center bg-black/5 rounded-2xl mb-10 border border-gray-200 shadow-inner overflow-hidden">
-                <img 
+                <ZoomableImage 
                   src={post.imgSrc} 
                   className="max-h-[50vh] object-contain w-full" 
                   alt={post.title} 
@@ -127,7 +129,7 @@ export default function NewsDetailModal({ isOpen, onClose, post, onDelete, onEdi
           )}
           
           <div className="text-gray-800 leading-[2.2] tracking-wide text-lg whitespace-pre-wrap mb-16 font-medium bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-            {post.content}
+            <TextWithLinks text={post.content} />
           </div>
 
           {/* Go Back button at bottom */}

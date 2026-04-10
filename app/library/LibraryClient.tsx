@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import LibraryDetailModal, { LibraryPost } from '@/components/modals/LibraryDetailModal';
 import LibraryWriteModal from '@/components/modals/LibraryWriteModal';
@@ -18,6 +19,10 @@ export default function LibraryClient({ initialDbPosts = [] }: { initialDbPosts?
   const [isWriteModalOpen, setIsWriteModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<LibraryPost | null>(null);
   const [editingPost, setEditingPost] = useState<LibraryPost | null>(null);
+  const [localSearch, setLocalSearch] = useState('');
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Re-fetch posts on mount in background to ensure freshness
   useEffect(() => {
@@ -66,6 +71,19 @@ export default function LibraryClient({ initialDbPosts = [] }: { initialDbPosts?
     window.addEventListener('reset-view', handleReset);
     return () => window.removeEventListener('reset-view', handleReset);
   }, []);
+
+  // Handle deep link to specific post from global search
+  useEffect(() => {
+    const postId = searchParams.get('postId');
+    if (postId && posts.length > 0) {
+      const target = posts.find(p => p.id === postId);
+      if (target) {
+        setSelectedPost(target);
+        // Clear the param so it doesn't reopen if closed
+        router.replace('/library', { scroll: false });
+      }
+    }
+  }, [searchParams, posts, router]);
 
   const handleAddOrEditPost = async (submittedPost: LibraryPost) => {
     try {
@@ -140,23 +158,42 @@ export default function LibraryClient({ initialDbPosts = [] }: { initialDbPosts?
   };
 
   const filteredPosts = posts.filter(post => {
-    if (activeTab === 'all') return true;
-    if (activeTab === 'prompt') return post.tag.includes('LLM') || post.tag.includes('프롬프트');
-    if (activeTab === 'image') return post.tag.includes('이미지');
-    if (activeTab === 'video') return post.tag.includes('영상');
-    return true;
+    let matchesTab = false;
+    if (activeTab === 'all') matchesTab = true;
+    else if (activeTab === 'prompt') matchesTab = post.tag.includes('LLM') || post.tag.includes('프롬프트');
+    else if (activeTab === 'image') matchesTab = post.tag.includes('이미지');
+    else if (activeTab === 'video') matchesTab = post.tag.includes('영상');
+    else matchesTab = true;
+
+    const matchesSearch = localSearch === '' || 
+      post.title.toLowerCase().includes(localSearch.toLowerCase()) || 
+      post.content.toLowerCase().includes(localSearch.toLowerCase()) ||
+      post.tag.toLowerCase().includes(localSearch.toLowerCase());
+      
+    return matchesTab && matchesSearch;
   });
 
   return (
     <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8 w-full pointer-events-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 border-b border-gray-700 pb-4">
-        <div>
+        <div className="w-full">
           <h2 className="text-3xl font-extrabold flex items-center gap-3">
             <i className="fa-solid fa-images text-amber-400"></i> AI 라이브러리
           </h2>
-          <p className="text-gray-400 mt-2 text-sm md:text-base">
+          <p className="text-gray-400 mt-2 text-sm md:text-base mb-4">
             <i className="fa-solid fa-lightbulb text-amber-500/70"></i> AI 프롬프트, 이미지, 영상 제작에 필요한 실무 백과사전입니다.
           </p>
+          <div className="relative max-w-sm w-full">
+            <input 
+              type="text" 
+              placeholder="라이브러리 내용 검색..." 
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
+              className="w-full bg-black/40 text-white text-sm rounded-full pl-10 pr-4 py-2 border border-gray-700 focus:outline-none focus:border-amber-500 transition-colors"
+              autoComplete="off"
+            />
+            <i className="fa-solid fa-magnifying-glass absolute left-4 top-3 text-gray-500"></i>
+          </div>
         </div>
         {isAdmin && (
           <button 
@@ -164,7 +201,7 @@ export default function LibraryClient({ initialDbPosts = [] }: { initialDbPosts?
               setEditingPost(null);
               setIsWriteModalOpen(true);
             }}
-            className="mt-4 md:mt-0 bg-amber-600 hover:bg-amber-500 text-white font-bold px-6 py-2.5 rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.3)] transition flex items-center gap-2 text-sm cursor-pointer"
+            className="mt-4 md:mt-0 bg-amber-600 hover:bg-amber-500 text-white font-bold px-6 py-2.5 rounded-xl shadow-[0_0_15px_rgba(245,158,11,0.3)] transition flex items-center gap-2 text-sm cursor-pointer shrink-0 whitespace-nowrap"
           >
             <i className="fa-solid fa-cloud-arrow-up"></i> 자료 업로드
           </button>
@@ -211,7 +248,7 @@ export default function LibraryClient({ initialDbPosts = [] }: { initialDbPosts?
               : 'bg-black/50 text-gray-400 border border-gray-700 hover:text-white'
           }`}
         >
-          <i className="fa-solid fa-video mr-2"></i>영상 라이브러리
+          <i className="fa-solid fa-video mr-2"></i>영상 라이브러리 
         </button>
       </div>
 

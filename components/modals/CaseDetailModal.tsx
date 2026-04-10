@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import TextWithLinks from '@/components/TextWithLinks';
+import ZoomableImage from '@/components/ui/ZoomableImage';
 
 export type CasePost = {
   id: string;
@@ -96,7 +98,7 @@ export default function CaseDetailModal({ isOpen, onClose, post, onDelete, onEdi
           
           {post.imgSrc && (
             <div className="w-full flex justify-center bg-gray-50 rounded-2xl mb-8 border border-gray-200 shadow-inner overflow-hidden">
-                <img 
+                <ZoomableImage 
                   src={post.imgSrc} 
                   className="max-h-[60vh] object-contain w-full" 
                   alt={post.title} 
@@ -105,7 +107,7 @@ export default function CaseDetailModal({ isOpen, onClose, post, onDelete, onEdi
           )}
           
           <div className="text-gray-800 leading-relaxed text-lg whitespace-pre-wrap mb-12">
-            {post.content}
+            <TextWithLinks text={post.content} />
           </div>
 
           {/* Go Back button at bottom */}

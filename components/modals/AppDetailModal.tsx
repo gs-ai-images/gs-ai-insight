@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import TextWithLinks from '@/components/TextWithLinks';
+import ZoomableImage from '@/components/ui/ZoomableImage';
 
 export type AppPost = {
   id: string;
@@ -114,7 +116,7 @@ export default function AppDetailModal({ isOpen, onClose, post, onDelete, onEdit
             <div className="mb-8 space-y-4">
               {post.images.map((imgUrl, idx) => (
                 <div key={idx} className="rounded-2xl overflow-hidden shadow-sm border border-gray-100 flex justify-center bg-gray-50">
-                  <img 
+                  <ZoomableImage 
                     src={imgUrl} 
                     alt={`${post.title} 이미지 ${idx + 1}`} 
                     className="w-full h-auto object-contain max-h-[800px]"
@@ -124,7 +126,7 @@ export default function AppDetailModal({ isOpen, onClose, post, onDelete, onEdit
             </div>
           ) : post.imgSrc && (
             <div className="mb-8 rounded-2xl overflow-hidden shadow-sm border border-gray-100 flex justify-center bg-gray-50">
-              <img 
+              <ZoomableImage 
                 src={post.imgSrc} 
                 alt={post.title} 
                 className="w-full h-auto object-contain max-h-[800px]"
@@ -133,7 +135,7 @@ export default function AppDetailModal({ isOpen, onClose, post, onDelete, onEdit
           )}
 
           <div className="text-gray-700 leading-relaxed text-lg whitespace-pre-wrap mb-16 bg-gray-50 p-6 rounded-2xl border border-gray-100 shadow-inner">
-            {post.content}
+            <TextWithLinks text={post.content} />
           </div>
 
         </div>

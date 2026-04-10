@@ -36,9 +36,10 @@ export async function middleware(request: NextRequest) {
   // 2. Global Authentication check
   const pathname = request.nextUrl.pathname;
   
-  // Publicly accessible paths (don't block login, auth endpoints, or static assets)
+  // Publicly accessible paths (don't block login, auth endpoints, static assets, or scheduled tasks)
   const isPublicPath = pathname.startsWith('/login') || 
-                       pathname.startsWith('/api/auth');
+                       pathname.startsWith('/api/auth') ||
+                       pathname.startsWith('/api/cron');
                        
   if (!isPublicPath) {
     const token = await getToken({ 

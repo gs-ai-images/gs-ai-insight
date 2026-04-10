@@ -57,25 +57,27 @@ export default function GlobalSearchModal({ isOpen, onClose, keyword, results }:
                   <BookmarkButton id={item.id} />
                 </div>
                 
-                {item.imgSrc ? (
-                  <div className="relative">
-                    <img src={item.imgSrc} className="w-full object-cover border-b border-gray-700" alt={item.title} />
-                  </div>
-                ) : (
-                  <div className="h-2 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
-                )}
-                
-                <div className="p-5">
-                  <span className="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded inline-block font-bold mb-2">
-                    {item.tag}
-                  </span>
-                  <h3 className="font-bold text-white text-lg mb-2">{item.title}</h3>
-                  <p className="text-sm text-gray-300 line-clamp-3 mb-4">{item.description}</p>
+                <Link href={item.href} onClick={onClose} className="block">
+                  {item.imgSrc ? (
+                    <div className="relative">
+                      <img src={item.imgSrc} className="w-full object-cover border-b border-gray-700" alt={item.title} />
+                    </div>
+                  ) : (
+                    <div className="h-2 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+                  )}
                   
-                  <Link href={item.href} onClick={onClose} className="text-blue-400 hover:text-blue-300 text-xs font-bold transition flex items-center gap-1">
-                    이동하기 <i className="fa-solid fa-arrow-right"></i>
-                  </Link>
-                </div>
+                  <div className="p-5">
+                    <span className="bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded inline-block font-bold mb-2">
+                      {item.tag}
+                    </span>
+                    <h3 className="font-bold text-white text-lg mb-2">{item.title}</h3>
+                    <p className="text-sm text-gray-300 line-clamp-3 mb-4">{item.description}</p>
+                    
+                    <span className="text-blue-400 hover:text-blue-300 text-xs font-bold transition flex items-center gap-1">
+                      이동하기 <i className="fa-solid fa-arrow-right"></i>
+                    </span>
+                  </div>
+                </Link>
               </div>
             ))}
           </div>

@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import TextWithLinks from '@/components/TextWithLinks';
+import ZoomableImage from '@/components/ui/ZoomableImage';
 
 export type GuidePost = {
   id: string;
@@ -24,16 +26,14 @@ interface GuideDetailModalProps {
 export default function GuideDetailModal({ isOpen, onClose, post, onDelete, onEdit }: GuideDetailModalProps) {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === 'ADMIN';
-  const [zoomImage, setZoomImage] = useState<string | null>(null);
-  const [zoomScale, setZoomScale] = useState(1);
 
   useEffect(() => {
-    if (isOpen || zoomImage) {
+    if (isOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'auto';
     }
-  }, [isOpen, zoomImage]);
+  }, [isOpen]);
 
   if (!isOpen || !post) return null;
 
@@ -114,12 +114,11 @@ export default function GuideDetailModal({ isOpen, onClose, post, onDelete, onEd
               {imagesToRender.map((img, idx) => (
                 <div 
                   key={idx} 
-                  className="w-full flex justify-center bg-gray-50 rounded-2xl border border-gray-200 shadow-sm overflow-hidden cursor-zoom-in hover:shadow-md transition"
-                  onClick={() => setZoomImage(img)}
+                  className="w-full flex justify-center bg-gray-50 rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition"
                 >
-                  <img 
+                  <ZoomableImage 
                     src={img} 
-                    className="max-h-[60vh] object-contain w-full pointer-events-none" 
+                    className="max-h-[60vh] object-contain w-full" 
                     alt={`${post.title} - 첨부 이미지 ${idx+1}`} 
                   />
                 </div>
@@ -128,7 +127,7 @@ export default function GuideDetailModal({ isOpen, onClose, post, onDelete, onEd
           )}
           
           <div className="text-gray-800 leading-relaxed text-lg whitespace-pre-wrap mb-12">
-            {post.content}
+            <TextWithLinks text={post.content} linkClassName="text-emerald-400 hover:text-emerald-300 underline font-medium break-all" />
           </div>
 
           {/* Go Back button at bottom */}
@@ -144,37 +143,6 @@ export default function GuideDetailModal({ isOpen, onClose, post, onDelete, onEd
         
       </div>
 
-      {/* Image Zoom Modal */}
-      {zoomImage && (
-        <div 
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 p-4 cursor-zoom-out page-fade overflow-hidden"
-          onClick={() => {
-            setZoomImage(null);
-            setZoomScale(1);
-          }}
-          onWheel={(e) => {
-             // Prevent the default scroll to avoid behind-content scroll, though body is hidden
-             e.stopPropagation();
-             setZoomScale(prev => {
-                const newScale = e.deltaY < 0 ? prev + 0.15 : prev - 0.15;
-                return Math.max(0.5, Math.min(newScale, 5)); // Allow scale from 0.5x to 5x
-             });
-          }}
-        >
-          <button 
-            onClick={(e) => { e.stopPropagation(); setZoomImage(null); setZoomScale(1); }}
-            className="absolute top-6 right-6 text-white/70 hover:text-white text-4xl p-2 z-[70] cursor-pointer transition flex items-center justify-center w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full"
-          >
-            <i className="fa-solid fa-xmark"></i>
-          </button>
-          <img 
-            src={zoomImage} 
-            className="max-w-full max-h-full object-contain pointer-events-none rounded-lg shadow-2xl transition-transform duration-100 ease-out" 
-            style={{ transform: `scale(${zoomScale})` }}
-            alt="Enlarged" 
-          />
-        </div>
-      )}
     </div>
   );
 }

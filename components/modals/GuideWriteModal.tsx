@@ -216,7 +216,7 @@ export default function GuideWriteModal({ isOpen, onClose, onSubmit, initialData
                 <option value="1-6. Adobe AI">1-6. Adobe AI</option>
                 <option value="1-7. ComfyUI">1-7. ComfyUI</option>
                 <option value="1-8. 3D AI">1-8. 3D AI</option>
-                <option value="1-9. 기타">1-9. 기타</option>
+                <option value="1-9. 기타 AI">1-9. 기타 AI</option>
               </select>
             </div>
             

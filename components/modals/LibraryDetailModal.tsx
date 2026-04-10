@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import TextWithLinks from '@/components/TextWithLinks';
+import ZoomableImage from '@/components/ui/ZoomableImage';
 
 export type LibraryPost = {
   id: string;
@@ -112,7 +114,7 @@ export default function LibraryDetailModal({ isOpen, onClose, post, onDelete, on
                   {mediaUrl.startsWith('data:video') || mediaUrl.endsWith('.mp4') ? (
                     <video src={mediaUrl} controls className="max-h-[800px] object-contain w-full" />
                   ) : (
-                    <img src={mediaUrl} className="max-h-[800px] object-contain w-full" alt={`${post.title} - ${idx + 1}`} />
+                    <ZoomableImage src={mediaUrl} className="max-h-[800px] object-contain w-full" alt={`${post.title} - ${idx + 1}`} />
                   )}
                 </div>
               ))}
@@ -120,7 +122,7 @@ export default function LibraryDetailModal({ isOpen, onClose, post, onDelete, on
           )}
           
           <div className="text-gray-800 leading-relaxed text-lg whitespace-pre-wrap mb-12">
-            {post.content}
+            <TextWithLinks text={post.content} />
           </div>
 
           {/* Go Back button at bottom */}

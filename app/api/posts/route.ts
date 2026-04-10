@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     // This caches the API response at CDN level for 60 seconds
     return NextResponse.json(posts, {
       headers: {
-        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300'
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate'
       }
     });
   } catch (err) {

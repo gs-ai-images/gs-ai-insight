@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import AppDetailModal, { AppPost } from '@/components/modals/AppDetailModal';
 import AppWriteModal from '@/components/modals/AppWriteModal';
@@ -13,18 +14,26 @@ export default function AppsPage() {
   const isAdmin = session?.user?.role === 'ADMIN';
 
   const [posts, setPosts] = useState<AppPost[]>(initialApps);
+  const [isLoading, setIsLoading] = useState(true);
   const [isWriteModalOpen, setIsWriteModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<AppPost | null>(null);
   const [editingPost, setEditingPost] = useState<AppPost | null>(null);
+  const [localSearch, setLocalSearch] = useState('');
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Load saved posts from API on mount
   useEffect(() => {
     const fetchPosts = async () => {
       try {
         const cached = sessionStorage.getItem('gs-cache-apps');
-        if (cached) setPosts(JSON.parse(cached));
+        if (cached) {
+          setPosts(JSON.parse(cached));
+          setIsLoading(false);
+        }
 
-        const res = await fetch('/api/posts?category=app');
+        const res = await fetch('/api/posts?category=app', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           const mappedPosts = data.map((post: any) => ({
@@ -44,6 +53,8 @@ export default function AppsPage() {
         }
       } catch (e) {
         console.error("Failed to load apps from DB", e);
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchPosts();
@@ -59,6 +70,19 @@ export default function AppsPage() {
     window.addEventListener('reset-view', handleReset);
     return () => window.removeEventListener('reset-view', handleReset);
   }, []);
+
+  // Handle deep link to specific post from global search
+  useEffect(() => {
+    const postId = searchParams.get('postId');
+    if (postId && posts.length > 0) {
+      const target = posts.find(p => p.id === postId);
+      if (target) {
+        setSelectedPost(target);
+        // Clear the param so it doesn't reopen if closed
+        router.replace('/apps', { scroll: false });
+      }
+    }
+  }, [searchParams, posts, router]);
 
   const handleAddOrEditPost = async (submittedPost: AppPost) => {
     try {
@@ -125,13 +149,24 @@ export default function AppsPage() {
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 w-full pointer-events-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 border-b border-gray-800 pb-5">
-        <div>
+        <div className="w-full">
           <h2 className="text-3xl font-extrabold flex items-center gap-3">
             <i className="fa-solid fa-rocket text-cyan-400"></i> 자체 AI 앱 서비스
           </h2>
-          <p className="text-gray-400 mt-2 text-sm">
+          <p className="text-gray-400 mt-2 text-sm mb-4">
             사내/외에서 직접 제작한 맞춤형 AI 애플리케이션을 공유하고 실행해 보세요.
           </p>
+          <div className="relative max-w-sm w-full">
+            <input 
+              type="text" 
+              placeholder="앱 내용 검색..." 
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
+              className="w-full bg-black/40 text-white text-sm rounded-full pl-10 pr-4 py-2 border border-gray-700 focus:outline-none focus:border-cyan-500 transition-colors"
+              autoComplete="off"
+            />
+            <i className="fa-solid fa-magnifying-glass absolute left-4 top-3 text-gray-500"></i>
+          </div>
         </div>
         {isAdmin && (
           <button 
@@ -139,23 +174,35 @@ export default function AppsPage() {
               setEditingPost(null);
               setIsWriteModalOpen(true);
             }}
-            className="mt-4 md:mt-0 bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-5 py-2.5 rounded-xl shadow transition flex items-center gap-2 text-sm cursor-pointer"
+            className="mt-4 md:mt-0 bg-cyan-600 hover:bg-cyan-500 text-white font-bold px-6 py-2.5 rounded-xl shadow-[0_0_15px_rgba(8,145,178,0.3)] transition flex items-center gap-2 text-sm cursor-pointer shrink-0 whitespace-nowrap"
           >
-            <i className="fa-solid fa-cloud-arrow-up"></i> 새 앱 업로드 (관리자 전용)
+            <i className="fa-solid fa-link"></i> 앱서비스 연동
           </button>
         )}
       </div>
       
-      {posts.length === 0 ? (
+      {isLoading && posts.length === 0 ? (
+        <div className="py-20 text-center w-full min-h-[50vh] flex flex-col items-center justify-center page-fade">
+          <i className="fa-solid fa-spinner fa-spin text-4xl mb-4 text-cyan-500"></i>
+          <h3 className="text-xl font-bold text-gray-300">최신 정보를 불러오는 중입니다...</h3>
+        </div>
+      ) : posts.length === 0 ? (
         <div className="text-center py-24 text-gray-500">
           <i className="fa-solid fa-layer-group text-5xl mb-5 opacity-50 text-cyan-500/50"></i>
           <p className="text-lg">등록된 자체 앱 서비스가 없습니다.<br/>{isAdmin ? '위에 있는 버튼을 눌러 첫 번째 앱을 등록해주세요.' : '관리자가 새로운 앱을 곧 추가할 예정입니다.'}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 page-fade">
-          {posts.map((post) => (
-            <div 
-              key={post.id}
+          {posts
+            .filter(post => 
+              localSearch === '' || 
+              post.title.toLowerCase().includes(localSearch.toLowerCase()) || 
+              post.content.toLowerCase().includes(localSearch.toLowerCase()) ||
+              post.tag.toLowerCase().includes(localSearch.toLowerCase())
+            )
+            .map((post) => (
+              <div 
+                key={post.id}
               onClick={() => setSelectedPost(post)}
               className="glass-panel rounded-3xl p-6 flex flex-col border border-gray-700 hover:border-cyan-500/50 hover:shadow-[0_0_20px_rgba(34,211,238,0.2)] transition cursor-pointer group"
             >

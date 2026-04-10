@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import GuideDetailModal, { GuidePost } from '@/components/modals/GuideDetailModal';
 import GuideWriteModal from '@/components/modals/GuideWriteModal';
@@ -16,6 +17,7 @@ const guideTabs = [
   { id: '1-6. Adobe AI', label: '1-6. Adobe AI', icon: 'fa-bezier-curve' },
   { id: '1-7. ComfyUI', label: '1-7. ComfyUI', icon: 'fa-diagram-project' },
   { id: '1-8. 3D AI', label: '1-8. 3D AI', icon: 'fa-cubes' },
+  { id: '1-9. 기타 AI', label: '1-9. 기타 AI', icon: 'fa-boxes-stacked' },
 ];
 
 const getBadgeStyles = (tag: string) => {
@@ -43,21 +45,28 @@ export default function GuidePage() {
   const isAdmin = session?.user?.role === 'ADMIN';
 
   const [posts, setPosts] = useState<GuidePost[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('전체');
   const [isWriteModalOpen, setIsWriteModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<GuidePost | null>(null);
   const [editingPost, setEditingPost] = useState<GuidePost | null>(null);
+  const [localSearch, setLocalSearch] = useState('');
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Load saved posts from API on mount
   useEffect(() => {
     const fetchPosts = async () => {
       try {
         const cached = sessionStorage.getItem('gs-cache-guide');
-        if (cached) setPosts(JSON.parse(cached));
+        if (cached) {
+          setPosts(JSON.parse(cached));
+          setIsLoading(false);
+        }
 
-        const res = await fetch('/api/posts?category=guide');
+        const res = await fetch('/api/posts?category=guide', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           const mappedPosts = data.map((post: any) => ({
@@ -76,6 +85,8 @@ export default function GuidePage() {
         }
       } catch (e) {
         console.error("Failed to load guide posts from DB", e);
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchPosts();
@@ -91,6 +102,19 @@ export default function GuidePage() {
     window.addEventListener('reset-view', handleReset);
     return () => window.removeEventListener('reset-view', handleReset);
   }, []);
+
+  // Handle deep link to specific post from global search
+  useEffect(() => {
+    const postId = searchParams.get('postId');
+    if (postId && posts.length > 0) {
+      const target = posts.find(p => p.id === postId);
+      if (target) {
+        setSelectedPost(target);
+        // Clear the param so it doesn't reopen if closed
+        router.replace('/guide', { scroll: false });
+      }
+    }
+  }, [searchParams, posts, router]);
 
   const handleAddOrEditPost = async (submittedPost: GuidePost) => {
     try {
@@ -159,18 +183,36 @@ export default function GuidePage() {
     }
   };
 
-  const filteredPosts = activeTab === '전체' ? posts : posts.filter(post => post.tag === activeTab);
+  const filteredPosts = posts.filter(post => {
+    const matchesTab = activeTab === '전체' || post.tag === activeTab;
+    const matchesSearch = localSearch === '' || 
+      post.title.toLowerCase().includes(localSearch.toLowerCase()) || 
+      post.content.toLowerCase().includes(localSearch.toLowerCase()) ||
+      post.tag.toLowerCase().includes(localSearch.toLowerCase());
+    return matchesTab && matchesSearch;
+  });
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 w-full pointer-events-auto">
       <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end border-b border-gray-800 pb-5">
-        <div>
+        <div className="w-full">
           <h2 className="text-3xl font-extrabold flex items-center gap-3">
             <i className="fa-solid fa-book-open-reader text-emerald-400"></i> AI 가이드 (실무 TIP)
           </h2>
-          <p className="text-gray-400 mt-2 text-sm md:text-base flex items-center gap-2">
-            <i className="fa-solid fa-microchip text-emerald-500/70"></i> 매주 화요일 07:50, AI 에이전트가 유튜브 최신 튜토리얼을 분석하여 업로드합니다.
+          <p className="text-gray-400 mt-2 text-sm md:text-base flex items-center gap-2 mb-4">
+            <i className="fa-solid fa-bolt text-emerald-500/70"></i> 실무에 즉시 적용 가능한 AI 활용 백서! 업무 효율을 극대화할 최신 툴 튜토리얼을 만나보세요.
           </p>
+          <div className="relative max-w-sm w-full">
+            <input 
+              type="text" 
+              placeholder="가이드 내용 검색..." 
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
+              className="w-full bg-black/40 text-white text-sm rounded-full pl-10 pr-4 py-2 border border-gray-700 focus:outline-none focus:border-emerald-500 transition-colors"
+              autoComplete="off"
+            />
+            <i className="fa-solid fa-magnifying-glass absolute left-4 top-3 text-gray-500"></i>
+          </div>
         </div>
         
         {isAdmin && (
@@ -179,7 +221,7 @@ export default function GuidePage() {
               setEditingPost(null);
               setIsWriteModalOpen(true);
             }}
-            className="mt-4 md:mt-0 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-xl shadow-[0_0_15px_rgba(16,185,129,0.3)] transition flex items-center gap-2 text-sm cursor-pointer"
+            className="mt-4 md:mt-0 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-2.5 rounded-xl shadow-[0_0_15px_rgba(16,185,129,0.3)] transition flex items-center gap-2 text-sm cursor-pointer shrink-0 whitespace-nowrap"
           >
             <i className="fa-solid fa-cloud-arrow-up"></i> 가이드 작성
           </button>
@@ -226,7 +268,12 @@ export default function GuidePage() {
       </div>
 
       {/* Content Area */}
-      {filteredPosts.length === 0 ? (
+      {isLoading && filteredPosts.length === 0 ? (
+        <div className="py-20 text-center w-full min-h-[50vh] flex flex-col items-center justify-center page-fade">
+          <i className="fa-solid fa-spinner fa-spin text-4xl mb-4 text-emerald-500"></i>
+          <h3 className="text-xl font-bold text-gray-300">최신 정보를 불러오는 중입니다...</h3>
+        </div>
+      ) : filteredPosts.length === 0 ? (
         <div className="py-24 text-center glass-panel rounded-2xl page-fade border-dashed border-gray-600">
             <i className="fa-solid fa-robot text-6xl mb-4 text-gray-600 opacity-50"></i>
             <h3 className="text-xl font-bold text-gray-300 mb-2">등록된 가이드가 없거나 AI 에이전트 수집 대기 중입니다.</h3>

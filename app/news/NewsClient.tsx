@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import NewsDetailModal, { NewsPost } from '@/components/modals/NewsDetailModal';
 import NewsWriteModal from '@/components/modals/NewsWriteModal';
@@ -15,6 +16,10 @@ export default function NewsClient({ initialDbPosts = [] }: { initialDbPosts?: N
   const [isWriteModalOpen, setIsWriteModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<NewsPost | null>(null);
   const [editingPost, setEditingPost] = useState<NewsPost | null>(null);
+  const [localSearch, setLocalSearch] = useState('');
+  
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const fetchPosts = useCallback(async () => {
     try {
@@ -76,6 +81,19 @@ export default function NewsClient({ initialDbPosts = [] }: { initialDbPosts?: N
     return () => window.removeEventListener('reset-view', handleReset);
   }, []);
 
+  // Handle deep link to specific post from global search
+  useEffect(() => {
+    const postId = searchParams.get('postId');
+    if (postId && posts.length > 0) {
+      const target = posts.find(p => p.id === postId);
+      if (target) {
+        setSelectedPost(target);
+        // Clear the param so it doesn't reopen if closed
+        router.replace('/news', { scroll: false });
+      }
+    }
+  }, [searchParams, posts, router]);
+
   const handleAddOrEditPost = async (submittedPost: NewsPost) => {
     const isNew = submittedPost.id.startsWith('news-');
     
@@ -134,10 +152,21 @@ export default function NewsClient({ initialDbPosts = [] }: { initialDbPosts?: N
             <h2 className="text-3xl font-extrabold flex items-center gap-3">
               <i className="fa-regular fa-newspaper text-rose-400"></i> AI 트렌드 뉴스
             </h2>
-            <p className="text-gray-400 mt-2 text-sm flex items-center gap-2">
+            <p className="text-gray-400 mt-2 text-sm flex items-center gap-2 mb-4">
               <i className="fa-solid fa-satellite-dish text-rose-500/70"></i> 
               국내/외 최신 AI 이슈를 실시간 에이전트 수집 혹은 수동으로 종합하여 요약 제공합니다.
             </p>
+            <div className="relative max-w-sm w-full">
+              <input 
+                type="text" 
+                placeholder="뉴스 내용 검색..." 
+                value={localSearch}
+                onChange={(e) => setLocalSearch(e.target.value)}
+                className="w-full bg-black/40 text-white text-sm rounded-full pl-10 pr-4 py-2 border border-gray-700 focus:outline-none focus:border-rose-500 transition-colors"
+                autoComplete="off"
+              />
+              <i className="fa-solid fa-magnifying-glass absolute left-4 top-3 text-gray-500"></i>
+            </div>
           </div>
           {isAdmin && (
             <button 
@@ -145,7 +174,7 @@ export default function NewsClient({ initialDbPosts = [] }: { initialDbPosts?: N
                 setEditingPost(null);
                 setIsWriteModalOpen(true);
               }}
-              className="mt-4 md:mt-0 bg-rose-600 hover:bg-rose-500 text-white font-bold px-6 py-2.5 rounded-xl shadow-[0_0_15px_rgba(225,29,72,0.3)] transition flex items-center gap-2 text-sm cursor-pointer"
+              className="mt-4 md:mt-0 bg-rose-600 hover:bg-rose-500 text-white font-bold px-6 py-2.5 rounded-xl shadow-[0_0_15px_rgba(225,29,72,0.3)] transition flex items-center gap-2 text-sm cursor-pointer shrink-0 whitespace-nowrap"
             >
               <i className="fa-solid fa-pen-to-square"></i> 뉴스 작성 / 에이전트 연동
             </button>
@@ -170,7 +199,14 @@ export default function NewsClient({ initialDbPosts = [] }: { initialDbPosts?: N
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-[minmax(250px,_auto)] page-fade">
-          {posts.map((post: NewsPost, index: number) => {
+          {posts
+            .filter(post => 
+              localSearch === '' || 
+              post.title.toLowerCase().includes(localSearch.toLowerCase()) || 
+              post.content.toLowerCase().includes(localSearch.toLowerCase()) ||
+              post.tag.toLowerCase().includes(localSearch.toLowerCase())
+            )
+            .map((post: NewsPost, index: number) => {
             // Bento Box layout pattern (repeats every 10 items)
             const layoutPattern = [
               "md:col-span-2 md:row-span-2 flex-col",                     // 0: Hero wide & tall

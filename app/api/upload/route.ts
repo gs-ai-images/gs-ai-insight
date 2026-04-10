@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 import { supabase } from "@/utils/supabase";
+import sharp from "sharp";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,16 +22,37 @@ export async function POST(req: NextRequest) {
 
     for (const file of files) {
       const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
+      let buffer: any = Buffer.from(bytes);
       
-      const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+      let safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+      let contentType = file.type;
+
+      // Compress images ignoring svg and gif
+      if (contentType.startsWith('image/') && !contentType.includes('svg') && !contentType.includes('gif')) {
+        try {
+          buffer = await sharp(buffer)
+            .webp({ quality: 80 })
+            .toBuffer();
+            
+          contentType = 'image/webp';
+          const extMatch = safeName.match(/\.([^.]+)$/);
+          if (extMatch) {
+            safeName = safeName.replace(new RegExp(`\\.${extMatch[1]}$`, 'i'), '.webp');
+          } else {
+            safeName += '.webp';
+          }
+        } catch (error) {
+          console.error("Image optimization failed, falling back to original:", error);
+        }
+      }
+      
       const filename = `${Date.now()}-${Math.random().toString(36).substring(7)}-${safeName}`;
       
       const { data, error } = await supabase
         .storage
         .from('gs-ai-images')
         .upload(filename, buffer, {
-          contentType: file.type,
+          contentType: contentType,
           upsert: false
         });
         
