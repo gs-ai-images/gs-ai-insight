@@ -47,31 +47,38 @@ export default function CaseWriteModal({ isOpen, onClose, onSubmit, initialData 
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleGlobalPaste = async (e: globalThis.ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+          if (items[i].type.startsWith('image/')) {
+              const file = items[i].getAsFile();
+              if (file) {
+                  e.preventDefault(); 
+                  try {
+                      const base64String = await compressImage(file, 1000, 0.6);
+                      setImages(prev => {
+                          if (prev.length >= 10) return prev;
+                          return [...prev, base64String];
+                      });
+                  } catch (err) {
+                      console.error("Compression failed:", err);
+                  }
+              }
+          }
+      }
+    };
+
+    window.addEventListener('paste', handleGlobalPaste);
+    return () => window.removeEventListener('paste', handleGlobalPaste);
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  const handleImagePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1) {
-            const file = items[i].getAsFile();
-            if (file) {
-                e.preventDefault();
-                try {
-                    const base64String = await compressImage(file, 1000, 0.6);
-                    setImages(prev => {
-                        if (prev.length >= 10) return prev;
-                        return [...prev, base64String];
-                    });
-                } catch (err) {
-                    console.error("Compression failed:", err);
-                }
-            }
-        }
-    }
-  };
-  
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -291,10 +298,13 @@ export default function CaseWriteModal({ isOpen, onClose, onSubmit, initialData 
                   </div>
                 )}
                 
-                <div className="flex flex-col items-center justify-center pointer-events-none text-gray-500 mt-2 bg-black/20 p-3 rounded-lg border border-dashed border-gray-600">
-                  <i className="fa-solid fa-cloud-arrow-up text-xl mb-1"></i>
-                  <span className="text-xs font-bold text-gray-400">여기에 복붙은 안됩니다</span>
-                  <span className="text-[10px] mt-0.5 text-gray-500 text-center">아래 상세 내용 칸에 이미지를 바로 붙여넣기(Ctrl+V) 해주세요!</span>
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center text-gray-400 mt-2 bg-black/20 p-4 rounded-lg border border-dashed border-purple-500/50 hover:bg-purple-900/20 transition-colors cursor-pointer"
+                >
+                  <i className="fa-solid fa-file-import text-2xl mb-2 text-purple-400"></i>
+                  <span className="text-sm font-bold text-gray-300">클릭 또는 이미지 복사/붙여넣기(Ctrl+V)</span>
+                  <span className="text-xs mt-1 text-gray-500 text-center">모달창 어디서든 Ctrl+V로 이미지를 추가할 수 있습니다</span>
                 </div>
               </div>
             </div>
@@ -310,7 +320,6 @@ export default function CaseWriteModal({ isOpen, onClose, onSubmit, initialData 
              <textarea 
                value={content}
                onChange={(e) => setContent(e.target.value)}
-               onPaste={handleImagePaste}
                className="w-full bg-black/50 border border-gray-600 rounded-xl px-4 py-4 placeholder:text-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition text-white min-h-[400px]"
                placeholder="활용 사례나 노하우, 프롬프트를 자유롭게 적어주세요. (이미지를 Ctrl+V로 바로 붙여넣기 할 수 있습니다.)"
                required
