@@ -9,6 +9,7 @@ export type CasePost = {
   title: string;
   content: string;
   imgSrc: string;
+  images?: string[];
   tag: string;
   author: string;
   timeLabel: string;
@@ -33,6 +34,8 @@ export default function CaseDetailModal({ isOpen, onClose, post, onDelete, onEdi
   }, [isOpen]);
 
   if (!isOpen || !post) return null;
+
+  const imagesToRender = post.images && post.images.length > 0 ? post.images : (post.imgSrc ? [post.imgSrc] : []);
 
   const handleDelete = () => {
     if (confirm("정말 이 게시물을 삭제하시겠습니까?")) {
@@ -96,13 +99,20 @@ export default function CaseDetailModal({ isOpen, onClose, post, onDelete, onEdi
              )}
           </div>
           
-          {post.imgSrc && (
-            <div className="w-full flex justify-center bg-gray-50 rounded-2xl mb-8 border border-gray-200 shadow-inner overflow-hidden">
-                <ZoomableImage 
-                  src={post.imgSrc} 
-                  className="max-h-[60vh] object-contain w-full" 
-                  alt={post.title} 
-                />
+          {imagesToRender.length > 0 && (
+            <div className="flex flex-col gap-6 mb-8">
+              {imagesToRender.map((img, idx) => (
+                <div 
+                  key={idx} 
+                  className="w-full flex justify-center bg-gray-50 rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition"
+                >
+                  <ZoomableImage 
+                    src={img} 
+                    className="max-h-[60vh] object-contain w-full" 
+                    alt={`${post.title} - 첨부 이미지 ${idx+1}`} 
+                  />
+                </div>
+              ))}
             </div>
           )}
           

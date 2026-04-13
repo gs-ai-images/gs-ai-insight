@@ -6,18 +6,6 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const prisma = new PrismaClient();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-const urlsToDelete = [
-  "https://theguardian.com",
-  "https://blog.google",
-  "https://scitechdaily.com",
-  "https://cbsnews.com",
-  "https://cryptobriefing.com",
-  "https://switas.com",
-  "https://marketingprofs.com",
-  "https://linuxfoundation.org",
-  "https://sciencedaily.com"
-];
-
 async function scrapeAITimesLatest() {
   try {
     const res = await fetch('https://www.aitimes.com/news/articleList.html?sc_section_code=S1N1&view_type=sm', {
@@ -84,7 +72,6 @@ async function summarizeWithGemini(content: string, sourceName: string, retries 
 
     const result = await model.generateContent(prompt);
     let text = result.response.text();
-    // remove markdown codeblocks if any
     const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (match) {
         text = match[1];
@@ -104,14 +91,6 @@ async function summarizeWithGemini(content: string, sourceName: string, retries 
 }
 
 async function main() {
-  console.log('1. Deleting placeholder English posts...');
-  const deleted = await prisma.post.deleteMany({
-    where: {
-      sourceUrl: { in: urlsToDelete }
-    }
-  });
-  console.log(`Deleted ${deleted.count} placeholder posts.`);
-
   let systemAdmin = await prisma.user.findFirst({
     where: { role: 'ADMIN' }
   });
@@ -126,20 +105,16 @@ async function main() {
     });
   }
 
-  console.log('2. Scraping real Korean AI news from AITimes...');
+  console.log('1. Scraping real Korean AI news from AITimes...');
   const rawArticles = await scrapeAITimesLatest();
   console.log(`Found ${rawArticles.length} recent articles.`);
 
   for (const article of rawArticles) {
     try {
-      const existing = await prisma.post.findFirst({
+      // DELETE it if it exists so we can re-analyze properly as requested!
+      await prisma.post.deleteMany({
         where: { sourceUrl: article.link }
       });
-
-      if (existing) {
-        console.log(`Already exists, skipping: ${article.title}`);
-        continue;
-      }
 
       console.log(`Summarizing: ${article.title}...`);
       const geminiOutput = await summarizeWithGemini(article.body, article.sourceName);
@@ -151,11 +126,11 @@ async function main() {
           category: 'news',
           imageUrl: article.img,
           sourceUrl: article.link,
-          summary: Array.isArray(geminiOutput.summary) ? geminiOutput.summary.join('\n') : geminiOutput.summary,
+          summary: Array.isArray(geminiOutput.summary) ? geminiOutput.summary.join('\\n') : geminiOutput.summary,
           sourceName: article.sourceName,
           tag: Array.isArray(geminiOutput.tags) ? geminiOutput.tags.join(', ') : geminiOutput.tags,
           authorId: systemAdmin.id,
-          timeLabel: '최근 업데이트'
+          timeLabel: '2026-04-13'
         }
       });
       console.log(`-> Successfully inserted into DB.`);

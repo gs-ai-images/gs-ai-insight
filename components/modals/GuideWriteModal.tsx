@@ -121,7 +121,7 @@ export default function GuideWriteModal({ isOpen, onClose, onSubmit, initialData
 
     for (let i = 0; i < images.length; i++) {
         if (images[i].startsWith('data:')) {
-            const ext = images[i].startsWith('data:video') ? 'mp4' : 'jpg';
+            const ext = images[i].startsWith('data:video') ? 'mp4' : images[i].startsWith('data:image/webp') ? 'webp' : 'jpg';
             const converted = await base64ToFile(images[i], `upload_${Date.now()}_${i}.${ext}`);
             filesToUpload.push(converted);
             uploadIndices.push(i);

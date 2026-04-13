@@ -27,7 +27,7 @@ export const compressImage = (file: File, maxWidth = 1200, quality = 0.6): Promi
         
         // Draw and compress
         ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        const dataUrl = canvas.toDataURL('image/webp', quality);
         resolve(dataUrl);
       };
       
